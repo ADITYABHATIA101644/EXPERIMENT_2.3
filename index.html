@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive SVG Drawing Tool with Undo</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .toolbox {
+      margin-bottom: 10px;
+    }
+
+    button, input {
+      margin-right: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    svg {
+      border: 2px solid #333;
+      background: white;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div>
+    <div class="toolbox">
+      <button onclick="setTool('pen')">Pen</button>
+      <button onclick="setTool('rect')">Rectangle</button>
+      <button onclick="setTool('circle')">Circle</button>
+      <button onclick="setTool('eraser')">Eraser</button>
+      <input type="color" id="colorPicker">
+      <button onclick="undo()">Undo</button>
+      <button onclick="saveSVG()">Save</button>
+    </div>
+
+    <svg id="canvas" width="600" height="400"></svg>
+  </div>
+
+  <script>
+    const svg = document.getElementById("canvas");
+    const colorPicker = document.getElementById("colorPicker");
+
+    let tool = "pen";
+    let drawing = false;
+    let element;
+    let startX, startY;
+
+    // history stack for undo
+    const history = [];
+
+    function setTool(selectedTool) {
+      tool = selectedTool;
+    }
+
+    svg.addEventListener("mousedown", (e) => {
+      drawing = true;
+      startX = e.offsetX;
+      startY = e.offsetY;
+
+      if (tool === "pen" || tool === "eraser") {
+        element = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        element.setAttribute("d", `M ${startX} ${startY}`);
+        element.setAttribute("fill", "none");
+        element.setAttribute("stroke-width", tool === "eraser" ? 10 : 2);
+        element.setAttribute("stroke", tool === "eraser" ? "#ffffff" : colorPicker.value);
+        svg.appendChild(element);
+      }
+
+      if (tool === "rect") {
+        element = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        element.setAttribute("x", startX);
+        element.setAttribute("y", startY);
+        element.setAttribute("fill", "none");
+        element.setAttribute("stroke", colorPicker.value);
+        svg.appendChild(element);
+      }
+
+      if (tool === "circle") {
+        element = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        element.setAttribute("cx", startX);
+        element.setAttribute("cy", startY);
+        element.setAttribute("r", 1);
+        element.setAttribute("fill", "none");
+        element.setAttribute("stroke", colorPicker.value);
+        svg.appendChild(element);
+      }
+    });
+
+    svg.addEventListener("mousemove", (e) => {
+      if (!drawing) return;
+
+      const x = e.offsetX;
+      const y = e.offsetY;
+
+      if (tool === "pen" || tool === "eraser") {
+        let d = element.getAttribute("d");
+        element.setAttribute("d", `${d} L ${x} ${y}`);
+      }
+
+      if (tool === "rect") {
+        element.setAttribute("width", Math.abs(x - startX));
+        element.setAttribute("height", Math.abs(y - startY));
+      }
+
+      if (tool === "circle") {
+        let radius = Math.sqrt(
+          Math.pow(x - startX, 2) + Math.pow(y - startY, 2)
+        );
+        element.setAttribute("r", radius);
+      }
+    });
+
+    svg.addEventListener("mouseup", () => {
+      if (drawing && element) {
+        history.push(element); // save for undo
+      }
+      drawing = false;
+    });
+
+    svg.addEventListener("mouseleave", () => drawing = false);
+
+    function undo() {
+      if (history.length === 0) return;
+      const lastElement = history.pop();
+      svg.removeChild(lastElement);
+    }
+
+    function saveSVG() {
+      const data = new XMLSerializer().serializeToString(svg);
+      const blob = new Blob([data], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "drawing.svg";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+
+</body>
+</html>
